@@ -42,5 +42,11 @@
   "packageManager": "yarn@3.2.3",
   "engines": {
     "node": ">=18.18.0"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.62.11",
+    "pino-pretty": "^13.0.0",
+    "viem": "^2.21.58",
+    "wagmi": "^2.14.6"
   }
 }

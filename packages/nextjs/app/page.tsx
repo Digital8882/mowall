@@ -1,72 +1,139 @@
 "use client";
 
-import Link from "next/link";
-import type { NextPage } from "next";
-import { useAccount } from "wagmi";
-import { BugAntIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-import { Address } from "~~/components/scaffold-eth";
+import { useState } from "react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount, useContractRead, useContractWrite, usePrepareContractWrite } from "wagmi";
+import { parseUnits } from "viem";
 
-const Home: NextPage = () => {
-  const { address: connectedAddress } = useAccount();
+/**
+ * Our deployed TokenWallet details
+ *   - Replace with your deployed contract address
+ */
+const WALLET_ADDRESS = "0xYourDeployedSimpleTokenWallet";
+const WALLET_ABI = [
+  // Minimal ABI sections for deposit & withdraw
+  {
+    "inputs": [
+      { "internalType": "address", "name": "token", "type": "address" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "deposit",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "token", "type": "address" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "withdraw",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "user", "type": "address" },
+      { "internalType": "address", "name": "token", "type": "address" }
+    ],
+    "name": "balanceOf",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  }
+];
+
+export default function Home() {
+  const { address, isConnected } = useAccount();
+
+  const [tokenAddress, setTokenAddress] = useState("");
+  const [amount, setAmount] = useState("");
+  
+  // Check user balanceOf in wallet
+  const { data: userBalance } = useContractRead({
+    address: WALLET_ADDRESS as `0x${string}`,
+    abi: WALLET_ABI,
+    functionName: "balanceOf",
+    args: [address || "0x0000000000000000000000000000000000000000", tokenAddress || "0x0000000000000000000000000000000000000000"],
+    watch: true,
+    enabled: Boolean(isConnected && tokenAddress),
+  });
+
+  // Prepare deposit call
+  const { config: depositConfig } = usePrepareContractWrite({
+    address: WALLET_ADDRESS as `0x${string}`,
+    abi: WALLET_ABI,
+    functionName: "deposit",
+    args: [tokenAddress, amount ? parseUnits(amount, 18) : 0n],
+    enabled: Boolean(isConnected && tokenAddress && amount),
+  });
+  const { write: deposit } = useContractWrite(depositConfig);
+
+  // Prepare withdraw call
+  const { config: withdrawConfig } = usePrepareContractWrite({
+    address: WALLET_ADDRESS as `0x${string}`,
+    abi: WALLET_ABI,
+    functionName: "withdraw",
+    args: [tokenAddress, amount ? parseUnits(amount, 18) : 0n],
+    enabled: Boolean(isConnected && tokenAddress && amount),
+  });
+  const { write: withdraw } = useContractWrite(withdrawConfig);
 
   return (
-    <>
-      <div className="flex items-center flex-col flex-grow pt-10">
-        <div className="px-5">
-          <h1 className="text-center">
-            <span className="block text-2xl mb-2">Welcome to</span>
-            <span className="block text-4xl font-bold">Scaffold-ETH 2</span>
-          </h1>
-          <div className="flex justify-center items-center space-x-2 flex-col sm:flex-row">
-            <p className="my-2 font-medium">Connected Address:</p>
-            <Address address={connectedAddress} />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-slate-100 to-slate-300 text-slate-800 p-4">
+      <ConnectButton />
+      <h1 className="text-3xl font-bold mt-6 mb-4">Simple Token Wallet</h1>
+
+      {!isConnected && <p>Please connect your wallet.</p>}
+
+      {isConnected && (
+        <div className="mt-4 w-full max-w-sm space-y-4 p-4 shadow-xl bg-white rounded-xl">
+          <label className="block">
+            <span className="text-gray-700 font-semibold">Token Address</span>
+            <input
+              type="text"
+              placeholder="0x..."
+              value={tokenAddress}
+              onChange={e => setTokenAddress(e.target.value)}
+              className="mt-1 block w-full rounded border-gray-300 p-2 border"
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-gray-700 font-semibold">Amount</span>
+            <input
+              type="text"
+              placeholder="0.0"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+              className="mt-1 block w-full rounded border-gray-300 p-2 border"
+            />
+          </label>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => deposit?.()}
+              disabled={!deposit}
+              className="flex-1 bg-green-500 text-white py-2 rounded hover:bg-green-600 disabled:bg-gray-400"
+            >
+              Deposit
+            </button>
+            <button
+              onClick={() => withdraw?.()}
+              disabled={!withdraw}
+              className="flex-1 bg-red-500 text-white py-2 rounded hover:bg-red-600 disabled:bg-gray-400"
+            >
+              Withdraw
+            </button>
           </div>
 
-          <p className="text-center text-lg">
-            Get started by editing{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/nextjs/app/page.tsx
-            </code>
-          </p>
-          <p className="text-center text-lg">
-            Edit your smart contract{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              YourContract.sol
-            </code>{" "}
-            in{" "}
-            <code className="italic bg-base-300 text-base font-bold max-w-full break-words break-all inline-block">
-              packages/hardhat/contracts
-            </code>
-          </p>
-        </div>
-
-        <div className="flex-grow bg-base-300 w-full mt-16 px-8 py-12">
-          <div className="flex justify-center items-center gap-12 flex-col sm:flex-row">
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <BugAntIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Tinker with your smart contract using the{" "}
-                <Link href="/debug" passHref className="link">
-                  Debug Contracts
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
-            <div className="flex flex-col bg-base-100 px-10 py-10 text-center items-center max-w-xs rounded-3xl">
-              <MagnifyingGlassIcon className="h-8 w-8 fill-secondary" />
-              <p>
-                Explore your local transactions with the{" "}
-                <Link href="/blockexplorer" passHref className="link">
-                  Block Explorer
-                </Link>{" "}
-                tab.
-              </p>
-            </div>
+          <div className="mt-3 p-2 bg-slate-50 rounded text-center">
+            <p className="text-gray-600 text-sm">Your Wallet Balance (for token):</p>
+            <p className="font-bold">{userBalance ? String(userBalance) : "0"}</p>
           </div>
         </div>
-      </div>
-    </>
+      )}
+    </div>
   );
-};
-
-export default Home;
+}
